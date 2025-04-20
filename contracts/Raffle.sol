@@ -68,7 +68,10 @@ contract Raffle is VRFConsumerBaseV2Plus{
 
     //payable function to buy ticket as new user to participate in lottory
     function buyTicket() public payable {
-        require(msg.value >= I_TicketPrice, "Not enough ETH to buy a ticket");
+        if(msg.value >= I_TicketPrice)
+        {
+            
+        };
         players.push(msg.sender);
     }
     
