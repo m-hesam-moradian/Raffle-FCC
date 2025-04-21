@@ -4,68 +4,29 @@ pragma solidity ^0.8.19;
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 
-/**
- * @notice A Chainlink VRF consumer which uses randomness to mimic the rolling
- * of a 20 sided dice
- */
-
-/**
- * Request testnet LINK and ETH here: https://faucets.chain.link/
- * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
- */
-
-/**
- * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
- * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
- * DO NOT USE THIS CODE IN PRODUCTION.
- */
-
 contract VRFD20 is VRFConsumerBaseV2Plus {
-    uint256 private constant ROLL_IN_PROGRESS = 42;
-
-    // Your subscription ID.
+    // State
+    address[] public s_players;
     uint256 public s_subscriptionId;
-
-    // Sepolia coordinator. For other networks,
-    // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
-    //address public vrfCoordinator = 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
-    // address public vrfCoordinator;
-
-    // The gas lane to use, which specifies the maximum gas price to bump to.
-    // For a list of available gas lanes on each network,
-    // see https://docs.chain.link/vrf/v2-5/supported-networks#configurations
     bytes32 public s_keyHash;
-    //     0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    uint256 public s_requestId;
+    uint256 public s_winnerIndex;
 
-    // Depends on the number of requested values that you want sent to the
-    // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
-    // so 40,000 is a safe default for this example contract. Test and adjust
-    // this limit based on the network that you select, the size of the request,
-    // and the processing of the callback request in the fulfillRandomWords()
-    // function.
-    uint32 public constant CALLBACK_GAS_LIMIT = 40000;
-
-    // The default is 3, but you can set this higher.
+    // Constants
+    uint32 public constant CALLBACK_GAS_LIMIT = 100000;
     uint16 public constant REQUEST_CONFIRMATIONS = 3;
-
-    // For this example, retrieve 1 random value in one request.
-    // Cannot exceed VRFCoordinatorV2_5.MAX_NUM_WORDS.
     uint32 public constant NUM_WORDS = 1;
-    // map rollers to requestIds
-    mapping(uint256 => address) private s_players;
-    // map vrf results to rollers
-    mapping(address => uint256) private s_results;
 
-    event DiceRolled(uint256 indexed requestId, address indexed roller);
-    event DiceLanded(uint256 indexed requestId, uint256 indexed result);
+    // Events
+    event PlayerEntered(address indexed player);
+    event RandomRequestSent(uint256 requestId);
+    event WinnerSelected(address indexed winner);
 
-    /**
-     * @notice Constructor inherits VRFConsumerBaseV2Plus
-     *
-     * @dev NETWORK: Sepolia
-     *
-     * @param subscriptionId subscription ID that this consumer contract can use
-     */
+    // Errors
+    error NotEnoughETH();
+    error TransferFailed();
+    error NoPlayers();
+
     constructor(
         address vrfCoordinator,
         uint256 subscriptionId,
@@ -75,20 +36,18 @@ contract VRFD20 is VRFConsumerBaseV2Plus {
         s_keyHash = keyHash;
     }
 
-    /**
-     * @notice Requests randomness
-     * @dev Warning: if the VRF response is delayed, avoid calling requestRandomness repeatedly
-     * as that would give miners/VRF operators latitude about which VRF response arrives first.
-     * @dev You must review your implementation details with extreme care.
-     *
-     * @param roller address of the roller
-     */
-    function rollDice(
-        address roller
-    ) public onlyOwner returns (uint256 requestId) {
-        require(s_results[roller] == 0, "Already rolled");
-        // Will revert if subscription is not set and funded.
-        requestId = s_vrfCoordinator.requestRandomWords(
+    // Enter the lottery
+    function enterLottory() external payable {
+        if (msg.value < 0.1 ether) revert NotEnoughETH();
+        s_players.push(msg.sender);
+        emit PlayerEntered(msg.sender);
+    }
+
+    // Request randomness
+    function requestRandomWinner() external {
+        if (s_players.length == 0) revert NoPlayers();
+
+        s_requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: s_keyHash,
                 subId: s_subscriptionId,
@@ -96,93 +55,40 @@ contract VRFD20 is VRFConsumerBaseV2Plus {
                 callbackGasLimit: CALLBACK_GAS_LIMIT,
                 numWords: NUM_WORDS,
                 extraArgs: VRFV2PlusClient._argsToBytes(
-                    // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
                     VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
             })
         );
 
-        s_players;[requestId] = roller;
-        s_results[roller] = ROLL_IN_PROGRESS;
-        emit DiceRolled(requestId, roller);
+        emit RandomRequestSent(s_requestId);
     }
 
-
-    //create a pable function to peaple fund 
-function fundSubscription(
-        uint256 amount
-    ) public onlyOwner {
-        // Fund the subscription using LINK
-        LINK.transferAndCall(
-            address(s_vrfCoordinator),
-            amount,
-            abi.encode(s_subscriptionId)
-        );
-    }
-
-
-
-    /**
-     * @notice Callback function used by VRF Coordinator to return the random number to this contract.
-     *
-     * @dev Some action on the contract state should be taken here, like storing the result.
-     * @dev WARNING: take care to avoid having multiple VRF requests in flight if their order of arrival would result
-     * in contract states with different outcomes. Otherwise miners or the VRF operator would could take advantage
-     * by controlling the order.
-     * @dev The VRF Coordinator will only send this function verified responses, and the parent VRFConsumerBaseV2
-     * contract ensures that this method only receives randomness from the designated VRFCoordinator.
-     *
-     * @param requestId uint256
-     * @param randomWords  uint256[] The random result returned by the oracle.
-     */
+    // Called by Chainlink when random words are ready
     function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] calldata randomWords
+        uint256, // requestId
+        uint256[] memory randomWords
     ) internal override {
-        uint256 d20Value = (randomWords[0] % 20) + 1;
-        s_results[s_players;[requestId]] = d20Value;
-        emit DiceLanded(requestId, d20Value);
+        s_winnerIndex = randomWords[0] % s_players.length;
+        address winner = s_players[s_winnerIndex];
+        _sendAmountToWinner(winner);
+        emit WinnerSelected(winner);
     }
 
-    /**
-     * @notice Get the house assigned to the player once the address has rolled
-     * @param player address
-     * @return house as a string
-     */
-    function house(address player) public view returns (string memory) {
-        require(s_results[player] != 0, "Dice not rolled");
-        require(s_results[player] != ROLL_IN_PROGRESS, "Roll in progress");
-        return _getHouseName(s_results[player]);
+    // Send all ETH to winner
+    function _sendAmountToWinner(address winner) internal {
+        uint256 amount = address(this).balance;
+        (bool success, ) = winner.call{value: amount}("");
+        if (!success) revert TransferFailed();
     }
 
-    /**
-     * @notice Get the house name from the id
-     * @param id uint256
-     * @return house name string
-     */
-    function _getHouseName(uint256 id) private pure returns (string memory) {
-        string[20] memory houseNames = [
-            "Targaryen",
-            "Lannister",
-            "Stark",
-            "Tyrell",
-            "Baratheon",
-            "Martell",
-            "Tully",
-            "Bolton",
-            "Greyjoy",
-            "Arryn",
-            "Frey",
-            "Mormont",
-            "Tarley",
-            "Dayne",
-            "Umber",
-            "Valeryon",
-            "Manderly",
-            "Clegane",
-            "Glover",
-            "Karstark"
-        ];
-        return houseNames[id - 1];
+    // View winner address (after selection)
+    function getWinner() external view returns (address) {
+        require(s_players.length > 0, "No players");
+        return s_players[s_winnerIndex];
+    }
+
+    // View all players
+    function getAllPlayers() external view returns (address[] memory) {
+        return s_players;
     }
 }
