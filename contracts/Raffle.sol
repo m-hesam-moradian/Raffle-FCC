@@ -1,52 +1,49 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+// An example of a consumer contract that relies on a subscription for funding.
+pragma solidity ^0.8.28;
 
-import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
-import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract VRFD20 is VRFConsumerBaseV2Plus {
-    // State
-    address[] public s_players;
-    uint256 public s_subscriptionId;
-    bytes32 public s_keyHash;
+
+
+
+
+//errors
+error Raffle__NotEnoughETH();
+error Raffle__TransferFaild();
+
+contract Raffle is VRFConsumerBaseV2Plus {
+    uint256 immutable s_subscriptionId;
+    bytes32 immutable s_keyHash;
+    uint32 constant CALLBACK_GAS_LIMIT = 100000;
+    uint16 constant REQUEST_CONFIRMATIONS = 3;
+    uint32 constant NUM_WORDS = 2;
+    uint256 public s_randomWords;
+    address payable[] public  s_players;
+   
+
     uint256 public s_requestId;
-    uint256 public s_winnerIndex;
 
-    // Constants
-    uint32 public constant CALLBACK_GAS_LIMIT = 100000;
-    uint16 public constant REQUEST_CONFIRMATIONS = 3;
-    uint32 public constant NUM_WORDS = 1;
-
-    // Events
-    event PlayerEntered(address indexed player);
-    event RandomRequestSent(uint256 requestId);
-    event WinnerSelected(address indexed winner);
-
-    // Errors
-    error NotEnoughETH();
-    error TransferFailed();
-    error NoPlayers();
+    event winnerAddressShower(address indexed winnerAddress);
 
     constructor(
-        address vrfCoordinator,
         uint256 subscriptionId,
+        address vrfCoordinator,
         bytes32 keyHash
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
-        s_subscriptionId = subscriptionId;
         s_keyHash = keyHash;
+        s_subscriptionId = subscriptionId;
+    }
+    function enterRaffle() external payable{
+        if (msg.value < 0.01 ether) {
+            revert Raffle__NotEnoughETH();
+        }
+        s_players.push(payable(msg.sender));
+
     }
 
-    // Enter the lottery
-    function enterLottory() external payable {
-        if (msg.value < 0.1 ether) revert NotEnoughETH();
-        s_players.push(msg.sender);
-        emit PlayerEntered(msg.sender);
-    }
-
-    // Request randomness
-    function requestRandomWinner() external {
-        if (s_players.length == 0) revert NoPlayers();
-
+    function requestRandomWords() external onlyOwner {
         s_requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: s_keyHash,
@@ -59,36 +56,24 @@ contract VRFD20 is VRFConsumerBaseV2Plus {
                 )
             })
         );
-
-        emit RandomRequestSent(s_requestId);
     }
 
-    // Called by Chainlink when random words are ready
+    function sendAmountToWinner(address winnerAddress) internal {
+        (bool success, ) = winnerAddress.call{value: address(this).balance}("");
+     if(!success) {
+            revert Raffle__TransferFaild();
+        }
+    }
     function fulfillRandomWords(
-        uint256, // requestId
-        uint256[] memory randomWords
+        uint256 /* requestId */,
+        uint256[] calldata randomWords
     ) internal override {
-        s_winnerIndex = randomWords[0] % s_players.length;
-        address winner = s_players[s_winnerIndex];
-        _sendAmountToWinner(winner);
-        emit WinnerSelected(winner);
+       address s_winnerAddress=s_players [randomWords[0] % s_players.length];
+
+        emit winnerAddressShower(s_winnerAddress);
+        sendAmountToWinner( s_winnerAddress);
+
+        
     }
 
-    // Send all ETH to winner
-    function _sendAmountToWinner(address winner) internal {
-        uint256 amount = address(this).balance;
-        (bool success, ) = winner.call{value: amount}("");
-        if (!success) revert TransferFailed();
-    }
-
-    // View winner address (after selection)
-    function getWinner() external view returns (address) {
-        require(s_players.length > 0, "No players");
-        return s_players[s_winnerIndex];
-    }
-
-    // View all players
-    function getAllPlayers() external view returns (address[] memory) {
-        return s_players;
-    }
 }

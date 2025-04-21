@@ -1,17 +1,12 @@
-require("hardhat-deploy");
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+require("@nomiclabs/hardhat-waffle")
+require("@nomiclabs/hardhat-etherscan")
+require("hardhat-deploy")
+require("solidity-coverage")
+require("hardhat-gas-reporter")
+require("hardhat-contract-sizer")
+require("dotenv").config()
 
+/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.28",
-  namedAccounts: {
-    deployer: {
-      default: 0,
-    },
-  },
-  networks: {
-    hardhat: {
-      chainId: 31337,
-    },
-  },
-};
+    solidity: "0.8.28",
+}
