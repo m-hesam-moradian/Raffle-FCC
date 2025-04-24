@@ -30,7 +30,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const tx = await vrfCoordinatorV2_5MockInstance.createSubscription()
     const receipt = await tx.wait(1)
     const subscriptionId = receipt.logs[0].args.subId.toString()
-    console.log("Subscription created:", subscriptionId) // Log the subscription ID;
+    console.log("Subscription created:", subscriptionId)
     console.log("----------------------------------------------------")
 }
 
