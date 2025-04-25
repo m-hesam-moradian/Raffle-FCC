@@ -32,6 +32,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const subscriptionId = receipt.logs[0].args.subId.toString()
     console.log("Subscription created:", subscriptionId)
     console.log("----------------------------------------------------")
+    const configPath = path.join(__dirname, "../deployed/vrfConfig.json")
+    const config = {
+        vrfCoordinator: vrfCoordinatorV2_5Mock.address,
+        subscriptionId,
+    }
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+    console.log("Config saved to:", configPath)
+    console.log("----------------------------------------------------")
 }
 
 module.exports.tags = ["mocks"]
