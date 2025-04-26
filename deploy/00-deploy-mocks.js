@@ -1,4 +1,7 @@
 const { ethers, deployments } = require("hardhat")
+const fs = require("fs")
+const path = require("path")
+const { networkConfig, developmentChains } = require("../helper-hardhat-config")
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments
@@ -27,11 +30,19 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         vrfCoordinatorV2_5Mock.address, // Contract address
     )
 
-    const tx = await vrfCoordinatorV2_5MockInstance.createSubscription()
-    const receipt = await tx.wait(1)
+    let tx = await vrfCoordinatorV2_5MockInstance.createSubscription()
+    let receipt = await tx.wait(1)
     const subscriptionId = receipt.logs[0].args.subId.toString()
     console.log("Subscription created:", subscriptionId)
     console.log("----------------------------------------------------")
+
+    // Fund the subscription
+    const fundAmount = ethers.parseUnits("1", "ether")
+    tx = await vrfCoordinatorV2_5MockInstance.fundSubscription(subscriptionId, fundAmount)
+    await tx.wait(1)
+    console.log("Subscription funded with:", fundAmount.toString(), "LINK")
+    console.log("----------------------------------------------------")
+
     const configPath = path.join(__dirname, "../deployed/vrfConfig.json")
     const config = {
         vrfCoordinator: vrfCoordinatorV2_5Mock.address,
