@@ -1,6 +1,4 @@
 const { ethers, deployments } = require("hardhat")
-const fs = require("fs")
-const path = require("path")
 const { networkConfig, developmentChains } = require("../helper-hardhat-config")
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
@@ -42,16 +40,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await tx.wait(1)
     console.log("Subscription funded with:", fundAmount.toString(), "LINK")
     console.log("----------------------------------------------------")
-
-    const configPath = path.join(__dirname, "../deployed/vrfConfig.json")
-    const config = {
-        vrfCoordinator: vrfCoordinatorV2_5Mock.address,
-        subscriptionId,
-    }
-
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-    console.log("Config saved to:", configPath)
-    console.log("----------------------------------------------------")
+    await deployments.save("MySubscription&VRFcoordinator", {
+        address: "0x0000000000000000000000000000000000000000", // dummy
+        abi: [],
+        args: [],
+        linkedData: {
+            subscriptionId: subscriptionId.toString(),
+            VRFcoordinator: vrfCoordinatorV2_5Mock.address.toString(),
+        },
+    })
 }
 
 module.exports.tags = ["mocks"]

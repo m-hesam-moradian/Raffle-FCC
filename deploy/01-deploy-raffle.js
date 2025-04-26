@@ -1,11 +1,5 @@
-const fs = require("fs")
-const path = require("path")
 const { network, ethers } = require("hardhat")
 const { networkConfig, developmentChains } = require("../helper-hardhat-config")
-
-// Load VRF config
-const configPath = path.join(__dirname, "../deployed/vrfConfig.json")
-const vrfConfig = JSON.parse(fs.readFileSync(configPath, "utf8"))
 
 let vrfCoordinatorAddress, subscriptionId
 
@@ -20,8 +14,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     let keyHash = networkConfig[chainId]["keyHash"]
 
     if (developmentChains.includes(network.name)) {
-        vrfCoordinatorAddress = vrfConfig.vrfCoordinator
-        subscriptionId = vrfConfig.subscriptionId
+        const subData = await deployments.get("MySubscription&VRFcoordinator")
+        subscriptionId = subData.linkedData.subscriptionId
+        vrfCoordinatorAddress = subData.linkedData.VRFcoordinator
+        console.log("Using subscription ID:", subscriptionId)
     } else {
         vrfCoordinatorAddress = networkConfig[chainId]["vrfCoordinatorV2"]
         subscriptionId = networkConfig[chainId]["subscriptionId"]
@@ -35,6 +31,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
         waitConfirmations: networkConfig[chainId]?.blockConfirmations || 1,
     })
+
     log("Raffle deployed at:", raffle.address)
     log("--------------------------------")
 
@@ -44,6 +41,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             "VRFCoordinatorV2_5Mock", // Contract name (must match exactly)
             vrfCoordinatorAddress, // Contract address
         )
+
         const tx = await vrfCoordinatorV2_5MockInstance.addConsumer(subscriptionId, raffle.address)
         await tx.wait(1)
         log("Consumer added to subscription:", subscriptionId)
