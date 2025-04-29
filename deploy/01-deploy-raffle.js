@@ -1,10 +1,7 @@
-const { network, ethers } = require("hardhat")
+const { network, ethers, config } = require("hardhat")
 const { networkConfig, developmentChains } = require("../helper-hardhat-config")
 
 let vrfCoordinatorAddress, subscriptionId
-
-console.log("VRF Coordinator:", vrfCoordinatorAddress)
-console.log("Subscription ID:", subscriptionId)
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy, log, get } = deployments
@@ -12,6 +9,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const chainId = network.config.chainId
 
     let keyHash = networkConfig[chainId]["keyHash"]
+    //get entrance value from config .env
+    const entranceValue = networkConfig[chainId]["entranceValue"]
 
     if (developmentChains.includes(network.name)) {
         const subData = await deployments.get("MySubscription&VRFcoordinator")
@@ -23,7 +22,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         subscriptionId = networkConfig[chainId]["subscriptionId"]
     }
 
-    const args = [subscriptionId, vrfCoordinatorAddress, keyHash]
+    const args = [subscriptionId, vrfCoordinatorAddress, keyHash, entranceValue]
 
     const raffle = await deploy("Raffle", {
         from: deployer,

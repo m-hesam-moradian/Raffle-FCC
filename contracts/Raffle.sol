@@ -16,6 +16,8 @@ error Raffle__TransferFaild();
 contract Raffle is VRFConsumerBaseV2Plus {
     uint256 immutable s_subscriptionId;
     bytes32 immutable s_keyHash;
+    uint256 immutable s_entranceValue;
+
     uint32 constant CALLBACK_GAS_LIMIT = 100000;
     uint16 constant REQUEST_CONFIRMATIONS = 3;
     uint32 constant NUM_WORDS = 2;
@@ -30,13 +32,17 @@ contract Raffle is VRFConsumerBaseV2Plus {
     constructor(
         uint256 subscriptionId,
         address vrfCoordinator,
-        bytes32 keyHash
+        bytes32 keyHash,
+        uint256 entranceValue
+
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         s_keyHash = keyHash;
         s_subscriptionId = subscriptionId;
+        s_entranceValue = entranceValue;
+
     }
     function enterRaffle() external payable{
-        if (msg.value < 0.01 ether) {
+        if (msg.value < s_entranceValue) {
             revert Raffle__NotEnoughETH();
         }
         s_players.push(payable(msg.sender));
@@ -75,5 +81,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
         
     }
-
+    function getEntranceValue() external view returns (uint256) {
+        return s_entranceValue;
+    }
 }
