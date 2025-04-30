@@ -157,15 +157,10 @@ describe("Raffle Smart Contract Tests", function () {
         it("should request and receive random number", async () => {
             // Request random words
             const tx = await raffle.requestRandomWords()
-            
-            const txReceipt = await tx.wait()
-            console.log(
-               JSON.stringify(txReceipt)
-            )
-            const requestId =
-                txReceipt.logs.find((e) => e.event === "RandomWordsRequested")?.args?.requestId || 1
 
-            // Manually fulfill random words using the mock
+            const txReceipt = await tx.wait()
+            const requestId = await raffle.s_requestId()
+            console.log(requestId)
             await vrfCoordinatorV2Mock.fulfillRandomWords(requestId, raffle.target)
 
             // Read back the random words stored
