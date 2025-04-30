@@ -120,7 +120,7 @@ describe("Raffle Smart Contract Tests", function () {
         //     })
         // })
     })
-    describe("Raffle Contract Tests", function () {
+    describe("Raffle Functions Tests", function () {
         let entranceValue
         // Verify the entrace value of the getEntranceValue() function
         it("should return correct entrance value", async () => {
@@ -129,15 +129,7 @@ describe("Raffle Smart Contract Tests", function () {
             entranceValue = networkConfig[chainId]["entranceValue"]
             expect(EntranceValue).to.equal(entranceValue)
         })
-
-        //  create test for the correct and revert version of this func test:
-        //    function enterRaffle() external payable{
-        //         if (msg.value < s_entranceValue) {
-        //             revert Raffle__NotEnoughETH();
-        //         }
-        //         s_players.push(payable(msg.sender));
-
-        //     }
+        // Verify the interval value of the getInterval() function
         it("should allow entering the raffle with enough ETH", async () => {
             const additionalAmount = ethers.parseEther("0.01")
             const totalAmount = entranceValue + additionalAmount
@@ -150,8 +142,9 @@ describe("Raffle Smart Contract Tests", function () {
                 expect.fail(error.message)
             }
         })
+        // Verify the interval value of the getInterval() function
         it("should NOT allow entering the raffle with insufficient ETH", async () => {
-            const insufficientAmount = entranceValue + ethers.parseEther("0.001") // slightly less than needed
+            const insufficientAmount = entranceValue - ethers.parseEther("0.001") // slightly less than needed
 
             try {
                 await raffle.enterRaffle({ value: insufficientAmount })
@@ -161,14 +154,28 @@ describe("Raffle Smart Contract Tests", function () {
                 expect(error.message).to.include("NotEnoughETH")
             }
         })
+        it("should request and receive random number", async () => {
+            // Request random words
+            const tx = await raffle.requestRandomWords()
+            
+            const txReceipt = await tx.wait()
+            console.log(
+               JSON.stringify(txReceipt)
+            )
+            const requestId =
+                txReceipt.logs.find((e) => e.event === "RandomWordsRequested")?.args?.requestId || 1
 
-        // it("should revert when user tries to enter with insufficient ETH", async () => {
-        //     const entranceValue = await raffle.getEntranceValue()
-        //     await expect(
-        //         raffle.enterRaffle({ value: entranceValue.sub(ethers.parseEther("0.01")) }),
-        //     ).to.be.revertedWithCustomError(raffle, "Raffle__NotEnoughETH")
-        // })
+            // Manually fulfill random words using the mock
+            await vrfCoordinatorV2Mock.fulfillRandomWords(requestId, raffle.target)
+
+            // Read back the random words stored
+            const randomWord0 = await raffle.s_randomWords(0)
+            const randomWord1 = await raffle.s_randomWords(1)
+
+            console.log("Random Words Returned:", randomWord0.toString(), randomWord1.toString())
+
+            expect(randomWord0).to.be.gt(0)
+            expect(randomWord1).to.be.gt(0)
+        })
     })
-
-    // Additional tests for edge cases and error handling can be added here...
 })
