@@ -22,6 +22,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     uint16 constant REQUEST_CONFIRMATIONS = 3;
     uint32 constant NUM_WORDS = 2;
     uint256 public s_randomWords;
+    address public s_winnerAddress;
     address payable[] public  s_players;
    
 
@@ -74,7 +75,8 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 /* requestId */,
         uint256[] calldata randomWords
     ) internal override {
-       address s_winnerAddress=s_players [randomWords[0] % s_players.length];
+
+        s_winnerAddress=s_players [randomWords[0] % s_players.length];
 
         emit winnerAddressShower(s_winnerAddress);
         sendAmountToWinner( s_winnerAddress);
@@ -83,5 +85,16 @@ contract Raffle is VRFConsumerBaseV2Plus {
     }
     function getEntranceValue() external view returns (uint256) {
         return s_entranceValue;
+    }
+    // get winner address
+    function getWinnerAddress() external view returns (address) {
+        return s_winnerAddress;
+
+
+
+    }
+    // get players
+    function getPlayers() external view returns (address payable[] memory) {
+        return s_players;
     }
 }

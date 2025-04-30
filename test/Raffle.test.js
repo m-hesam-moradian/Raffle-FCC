@@ -3,7 +3,12 @@ const { expect } = require("chai")
 const { networkConfig } = require("../helper-hardhat-config")
 
 describe("Raffle Smart Contract Tests", function () {
-    let raffle, vrfCoordinatorV2Mock, deployer, vrfCoordinatorAddress, subscriptionId
+    let raffle,
+        vrfCoordinatorV2Mock,
+        deployer,
+        vrfCoordinatorAddress,
+        subscriptionId,
+        playersAddress
 
     // Ensure the deployment fixtures are loaded correctly before each test
     beforeEach(async () => {
@@ -17,6 +22,7 @@ describe("Raffle Smart Contract Tests", function () {
         const subData = await deployments.get("MySubscription&VRFcoordinator")
         subscriptionId = subData.linkedData.subscriptionId
         vrfCoordinatorAddress = subData.linkedData.VRFcoordinator
+        playersAddress = await raffle.getPlayers()
     })
 
     describe("Raffle and VRF Coordinator Mock Deployment", function () {
@@ -92,35 +98,20 @@ describe("Raffle Smart Contract Tests", function () {
             )
             expect(isConsumer).to.be.false
         })
-        // describe("Raffle Contract Tests", function () {
-        //     // Verify the initial state of the Raffle contract
-        //     it("should have correct initial state", async () => {
-        //         const entranceFee = await raffle.getEntranceFee()
-        //         expect(entranceFee).to.be.gt(0)
-        //         const interval = await raffle.getInterval()
-        //         expect(interval).to.be.gt(0)
-        //     })
-
-        //     // Verify the ability to enter the raffle
-        //     it("should allow users to enter the raffle", async () => {
-        //         const entranceFee = await raffle.getEntranceFee()
-        //         await raffle.enterRaffle({ value: entranceFee })
-        //         const player = await raffle.getPlayer(0)
-        //         expect(player).to.equal(deployer)
-        //     })
-
-        //     // Verify the ability to pick a winner
-        //     it("should pick a winner correctly", async () => {
-        //         const entranceFee = await raffle.getEntranceFee()
-        //         await raffle.enterRaffle({ value: entranceFee })
-        //         const tx = await raffle.performUpkeep([])
-        //         await tx.wait(1)
-        //         const winner = await raffle.getRecentWinner()
-        //         expect(winner).to.equal(deployer)
-        //     })
-        // })
     })
     describe("Raffle Functions Tests", function () {
+        beforeEach(async () => {
+            //add 3 players from hardhat accounts
+            const accounts = await ethers.getSigners()
+            const player1 = accounts[1]
+            const player2 = accounts[2]
+            const player3 = accounts[3]
+            await raffle.enterRaffle({ value: ethers.parseEther("0.01") })
+            await raffle.connect(player1).enterRaffle({ value: ethers.parseEther("0.01") })
+            await raffle.connect(player2).enterRaffle({ value: ethers.parseEther("0.01") })
+            await raffle.connect(player3).enterRaffle({ value: ethers.parseEther("0.01") })
+            playersAddress = await raffle.getPlayers()
+        })
         let entranceValue
         // Verify the entrace value of the getEntranceValue() function
         it("should return correct entrance value", async () => {
@@ -157,20 +148,16 @@ describe("Raffle Smart Contract Tests", function () {
         it("should request and receive random number", async () => {
             // Request random words
             const tx = await raffle.requestRandomWords()
-
-            const txReceipt = await tx.wait()
+            await tx.wait()
             const requestId = await raffle.s_requestId()
-            console.log(requestId)
+
             await vrfCoordinatorV2Mock.fulfillRandomWords(requestId, raffle.target)
 
             // Read back the random words stored
-            const randomWord0 = await raffle.s_randomWords(0)
-            const randomWord1 = await raffle.s_randomWords(1)
+            const winnerAddress = await raffle.getWinnerAddress()
 
-            console.log("Random Words Returned:", randomWord0.toString(), randomWord1.toString())
-
-            expect(randomWord0).to.be.gt(0)
-            expect(randomWord1).to.be.gt(0)
+            // Check that the winner is one of the players
+            expect(playersAddress).to.include(winnerAddress)
         })
     })
 })
