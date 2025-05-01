@@ -8,7 +8,8 @@ describe("Raffle Smart Contract Tests", function () {
         deployer,
         vrfCoordinatorAddress,
         subscriptionId,
-        playersAddress
+        playersAddress,
+        accounts
 
     // Ensure the deployment fixtures are loaded correctly before each test
     beforeEach(async () => {
@@ -102,7 +103,7 @@ describe("Raffle Smart Contract Tests", function () {
     describe("Raffle Functions Tests", function () {
         beforeEach(async () => {
             //add 3 players from hardhat accounts
-            const accounts = await ethers.getSigners()
+            accounts = await ethers.getSigners()
             const player1 = accounts[1]
             const player2 = accounts[2]
             const player3 = accounts[3]
@@ -158,6 +159,23 @@ describe("Raffle Smart Contract Tests", function () {
 
             // Check that the winner is one of the players
             expect(playersAddress).to.include(winnerAddress)
+        })
+        //see if amount sended to the winner address or not
+        it("should Amount Send to Winner Address after request random number", async () => {
+            // Request random words
+            const tx = await raffle.requestRandomWords()
+            await tx.wait()
+            const requestId = await raffle.s_requestId()
+
+            await vrfCoordinatorV2Mock.fulfillRandomWords(requestId, raffle.target)
+
+            // Read back the random words stored
+            const winnerAddress = await raffle.getWinnerAddress()
+
+            //see if the winner address is in accounts[range 1to3]
+
+            const winner = accounts.find((player) => player.address === winnerAddress)
+            expect(winner).to.exist
         })
     })
 })
